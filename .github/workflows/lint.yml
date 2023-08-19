@@ -34,7 +34,7 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: ${{ runner.os }}-cargo-
     - name: Install SQLx
-      run: cargo install sqlx-cli --no-default-features --features native-tls,sqlite
+      run: cargo install sqlx-cli --no-default-features --features native-tls,sqlite || true
     - name: Setup SQLite
       run: |
         touch db.sqlite
@@ -48,6 +48,6 @@ jobs:
     - name: Run lint
       run: cargo fmt --all -- --check
     - name: Install cargo audit
-      run: cargo install cargo-audit
+      run: cargo install cargo-audit || true
     - name: Run cargo audit
       run: cargo audit
