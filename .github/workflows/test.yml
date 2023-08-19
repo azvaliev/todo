@@ -16,10 +16,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Setup SQLLite
+    - name: Install SQLx
+      run: cargo install sqlx-cli --no-default-features --features native-tls,sqlite
+    - name: Setup SQLite
       run: |
         touch db.sqlite
         cp .env.development .env
+    - name: Run SQLite migrations
+      run: sqlx migrate run
     - name: Build
       run: cargo build --verbose
     - name: Run tests
