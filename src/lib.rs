@@ -18,31 +18,37 @@ pub struct Todo {
 
 impl Todo {
     pub fn new(content: String) -> Todo {
-        let unix_timestamp: i64 = SystemTime::now()
+        let created_at = Todo::get_timestamp_now();
+
+        Todo {
+            id: cuid(),
+            content,
+            created_at,
+            completed_at: None,
+        }
+    }
+
+    pub fn get_timestamp_now() -> i64 {
+        let timestamp_now: i64 = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
             .as_secs()
             .try_into()
             .expect("Unix timestamp overflowed");
 
-        Todo {
-            id: cuid(),
-            content,
-            created_at: unix_timestamp,
-            completed_at: None,
-        }
+        timestamp_now
     }
 }
 
 #[async_trait]
 pub trait TodoManager {
     /// Create a new todo
-    async fn create<'a>(&mut self, todo_content: &'a Todo) -> Result<&'a Todo, String>;
+    async fn create(&mut self, todo_content: &Todo) -> Result<(), String>;
 
     /// Gets a list of todos which have not been completed, or were completed within the last 24 hours
     async fn compile_relevant_list(&mut self) -> Result<Vec<Todo>, String>;
 
     /// Mark a todo as complete
-    async fn mark_complete(&mut self, todo_id: &str) -> Result<Todo, String>;
+    async fn mark_complete(&mut self, todo_id: &str) -> Result<(), String>;
 }
 

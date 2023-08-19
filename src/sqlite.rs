@@ -35,8 +35,8 @@ impl SqlLiteTodoManager {
 
 #[async_trait]
 impl TodoManager for SqlLiteTodoManager {
-    async fn create<'a>(&mut self, todo: &'a Todo) -> Result<&'a Todo, String> {
-        let res = sqlx::query!(
+    async fn create(&mut self, todo: &Todo) -> Result<(), String> {
+        sqlx::query!(
             "
             INSERT INTO todos (id, content, created_at, completed_at)
             VALUES (?, ?, ?, ?)
@@ -45,21 +45,15 @@ impl TodoManager for SqlLiteTodoManager {
             todo.content,
             todo.created_at,
             todo.completed_at,
-        ).fetch_one(&mut self.db).await;
+        ).fetch_one(&mut self.db)
+            .await
+            .map_err(|err| format!("Failed to create todo: {}", err))?;
 
-        match res {
-            Ok(_) => Ok(todo),
-            Err(e) => Err(format!("Failed to create todo: {}", e)),
-        }
+        Ok(())
     }
 
     async fn compile_relevant_list(&mut self) -> Result<Vec<Todo>, String> {
-        let timestamp_now: i64 = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs()
-            .try_into()
-            .expect("Unix timestamp overflowed");
+        let timestamp_now = Todo::get_timestamp_now();
 
         let timestamp_24_hours_ago = timestamp_now - (24 * 60 * 60);
 
@@ -80,8 +74,22 @@ impl TodoManager for SqlLiteTodoManager {
         }
     }
 
-    async fn mark_complete(&mut self, _todo_id: &str) -> Result<Todo, String> {
-        todo!()
+    async fn mark_complete(&mut self, todo_id: &str) -> Result<(), String> {
+        let timestamp_now = Todo::get_timestamp_now();
+
+       sqlx::query!(
+           "
+           UPDATE Todos
+           SET completed_at = ?
+           WHERE id = ?
+           ",
+           timestamp_now,
+           todo_id,
+        ).fetch_one(&mut self.db)
+           .await
+           .map_err(|err| format!("Failed to mark todo as complete: {}", err))?;
+
+       Ok(())
     }
 
 }
