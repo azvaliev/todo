@@ -5,5 +5,8 @@ CREATE TABLE Todos (
   completed_at BIGINT
 );
 
-CREATE INDEX Todos_created_at_completed_at
-ON Todos (created_at, completed_at);
+CREATE INDEX Todos_created_at
+ON Todos (created_at);
+
+CREATE INDEX Todos_completed_at
+ON Todos (completed_at);

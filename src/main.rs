@@ -1,4 +1,4 @@
-use todo_lib::{sqlite::SqlLiteTodoManager, TodoManager, Todo};
+use todo_lib::{sqlite::SqlLiteTodoManager, Todo, TodoManager};
 
 const SQLLITE_DB: &'static str = "db.sqlite?mode=rwc";
 
@@ -10,10 +10,12 @@ async fn main() {
         .await
         .expect("Failed to create todo manager");
 
-    todo_manager.migrate().await.expect("Failed to migrate database");
+    todo_manager
+        .migrate()
+        .await
+        .expect("Failed to migrate database");
 
-    let todo = todo_manager.create(&Todo::new(String::from("Test"))).await;
+    let _ = todo_manager.create(&Todo::new(String::from("Test"))).await;
     let todos = todo_manager.compile_relevant_list().await;
     let _ = dbg!(todos);
-
 }
