@@ -1,6 +1,8 @@
-use crate::{MarkCompleteError, Todo, TodoManager};
+use crate::{store::MarkCompleteError, Todo};
 use async_trait::async_trait;
 use sqlx::{sqlite::SqliteConnection, Connection};
+
+use super::TodoManager;
 
 pub struct SqlLiteTodoManager {
     db: SqliteConnection,
@@ -112,7 +114,7 @@ impl TodoManager for SqlLiteTodoManager {
 mod test {
     use std::thread;
 
-    use crate::{Todo, TodoManager};
+    use crate::{store::TodoManager, Todo};
 
     use super::SqlLiteTodoManager;
 

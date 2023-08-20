@@ -1,4 +1,7 @@
-use todo_lib::{sqlite::SqlLiteTodoManager, Todo, TodoManager};
+use todo_lib::{
+    store::{sqlite::SqlLiteTodoManager, TodoManager},
+    Todo,
+};
 
 const SQLLITE_DB: &'static str = "db.sqlite?mode=rwc";
 
