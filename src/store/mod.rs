@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use async_trait::async_trait;
 
 use crate::Todo;
@@ -8,6 +10,15 @@ pub mod sqlite;
 pub enum MarkCompleteError {
     SQLXError(sqlx::Error),
     TodoNotFound,
+}
+
+impl Display for MarkCompleteError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            MarkCompleteError::SQLXError(err) => write!(f, "SQLXError: {}", err),
+            MarkCompleteError::TodoNotFound => write!(f, "Todo not found"),
+        }
+    }
 }
 
 impl PartialEq for MarkCompleteError {

@@ -4,7 +4,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::{
     render::{TodoRenderOptions, TodoRenderer, TodoRendererEvent},
-    store::TodoStore,
+    store::{MarkCompleteError, TodoStore},
     Todo,
 };
 
@@ -68,6 +68,28 @@ impl<T: TodoRenderer, U: TodoStore> TodoController<T, U> {
                                 None
                             }
                             Err(e) => Some(format!("Failed to create todo: {}", e)),
+                        };
+
+                        event_renderer.render(&*todos, TodoRenderOptions { error });
+                    }
+                    TodoRendererEvent::MarkComplete(todo_id) => {
+                        let mut todos = event_todos.lock().await;
+
+                        // Mark todo as completed
+                        let mark_complete_result = event_store.mark_complete(todo_id).await;
+
+                        let error = match mark_complete_result {
+                            Ok(_) => None,
+                            Err(MarkCompleteError::TodoNotFound) => {
+                                *todos = event_store
+                                    .compile_relevant_list()
+                                    .await
+                                    .map_err(|e| format!("Failed to get todos: {}", e))
+                                    .unwrap();
+
+                                Some(format!("This todo does not exist"))
+                            }
+                            Err(e) => Some(format!("Failed to mark todo as complete: {}", e)),
                         };
 
                         event_renderer.render(&*todos, TodoRenderOptions { error });
