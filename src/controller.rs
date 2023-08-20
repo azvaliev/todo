@@ -9,8 +9,11 @@ use crate::{
 };
 
 pub struct TodoController<T: TodoRenderer, U: TodoStore> {
+    /// Current todos state
     todos: Arc<Mutex<Vec<Todo>>>,
+    /// Rendering implementation
     renderer: Arc<T>,
+    /// The data store
     store: Arc<U>,
     /// Receiver for events from the UI
     rx_render_event: Arc<Mutex<mpsc::Receiver<TodoRendererEvent>>>,
