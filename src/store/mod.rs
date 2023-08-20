@@ -21,15 +21,15 @@ impl PartialEq for MarkCompleteError {
 }
 
 #[async_trait]
-pub trait TodoManager {
+pub trait TodoStore: Send + Clone + Sync + 'static {
     /// Create a new todo
-    async fn create(&mut self, todo_content: &Todo) -> Result<(), sqlx::Error>;
+    async fn create(&self, todo_content: &Todo) -> Result<(), sqlx::Error>;
 
     /// Gets a list of todos which have not been completed, or were completed within the last 24 hours
     /// Incomplete todos should come first, ordered by recently created first
     /// Completed todos should come last, ordered by recently completed first
-    async fn compile_relevant_list(&mut self) -> Result<Vec<Todo>, sqlx::Error>;
+    async fn compile_relevant_list(&self) -> Result<Vec<Todo>, sqlx::Error>;
 
     /// Mark a todo as complete
-    async fn mark_complete(&mut self, todo_id: &str) -> Result<(), MarkCompleteError>;
+    async fn mark_complete(&self, todo_id: String) -> Result<(), MarkCompleteError>;
 }

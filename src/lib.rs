@@ -1,6 +1,7 @@
+mod build;
+pub mod controller;
 pub mod render;
 pub mod store;
-mod build;
 
 use sqlx::FromRow;
 use std::time::{SystemTime, UNIX_EPOCH};

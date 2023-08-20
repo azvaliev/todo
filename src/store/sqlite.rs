@@ -1,28 +1,31 @@
+use std::sync::Arc;
+
 use crate::{store::MarkCompleteError, Todo};
 use async_trait::async_trait;
-use sqlx::{sqlite::SqliteConnection, Connection};
+use sqlx::SqlitePool;
 
-use super::TodoManager;
+use super::TodoStore;
 
-pub struct SqlLiteTodoManager {
-    db: SqliteConnection,
+#[derive(Clone)]
+pub struct SqlLiteTodoStore {
+    db: Arc<SqlitePool>,
 }
 
-impl SqlLiteTodoManager {
+impl SqlLiteTodoStore {
     /// Create a new SqlLiteTodoManager
     /// Takes a path to the sqlite database
-    pub async fn new(sqlite_path: &str) -> Result<SqlLiteTodoManager, String> {
+    pub async fn new(sqlite_path: &str) -> Result<SqlLiteTodoStore, String> {
         // Connect to the sqlite database
-        let db = SqliteConnection::connect(sqlite_path)
+        let db = SqlitePool::connect(sqlite_path)
             .await
             .map_err(|e| format!("Failed to connect to sqlite database: {}", e))?;
 
-        Ok(SqlLiteTodoManager { db })
+        Ok(SqlLiteTodoStore { db: Arc::new(db) })
     }
 
-    pub async fn migrate(&mut self) -> Result<(), String> {
+    pub async fn migrate(&self) -> Result<(), String> {
         sqlx::migrate!()
-            .run(&mut self.db)
+            .run(&*self.db)
             .await
             .map_err(|e| format!("Failed to migrate database: {}", e))?;
 
@@ -31,8 +34,8 @@ impl SqlLiteTodoManager {
 }
 
 #[async_trait]
-impl TodoManager for SqlLiteTodoManager {
-    async fn create(&mut self, todo: &Todo) -> Result<(), sqlx::Error> {
+impl TodoStore for SqlLiteTodoStore {
+    async fn create(&self, todo: &Todo) -> Result<(), sqlx::Error> {
         sqlx::query!(
             "
             INSERT INTO todos (id, content, created_at, completed_at)
@@ -43,13 +46,13 @@ impl TodoManager for SqlLiteTodoManager {
             todo.created_at,
             todo.completed_at,
         )
-        .execute(&mut self.db)
+        .execute(&*self.db)
         .await?;
 
         Ok(())
     }
 
-    async fn compile_relevant_list(&mut self) -> Result<Vec<Todo>, sqlx::Error> {
+    async fn compile_relevant_list(&self) -> Result<Vec<Todo>, sqlx::Error> {
         let timestamp_now = Todo::get_timestamp_now();
 
         let timestamp_24_hours_ago = timestamp_now - (24 * 60 * 60);
@@ -64,7 +67,7 @@ impl TodoManager for SqlLiteTodoManager {
             ORDER BY created_at DESC
             ",
         )
-        .fetch_all(&mut self.db)
+        .fetch_all(&*self.db)
         .await?;
 
         let mut completed_todos = sqlx::query_as!(
@@ -77,7 +80,7 @@ impl TodoManager for SqlLiteTodoManager {
             ",
             timestamp_24_hours_ago,
         )
-        .fetch_all(&mut self.db)
+        .fetch_all(&*self.db)
         .await?;
 
         relevant_todos.append(&mut incomplete_todos);
@@ -86,7 +89,7 @@ impl TodoManager for SqlLiteTodoManager {
         Ok(relevant_todos)
     }
 
-    async fn mark_complete(&mut self, todo_id: &str) -> Result<(), MarkCompleteError> {
+    async fn mark_complete(&self, todo_id: String) -> Result<(), MarkCompleteError> {
         let timestamp_now = Todo::get_timestamp_now();
 
         let affected_count = sqlx::query!(
@@ -98,7 +101,7 @@ impl TodoManager for SqlLiteTodoManager {
             timestamp_now,
             todo_id,
         )
-        .execute(&mut self.db)
+        .execute(&*self.db)
         .await
         .map_err(|err| MarkCompleteError::SQLXError(err))?;
 
@@ -114,12 +117,15 @@ impl TodoManager for SqlLiteTodoManager {
 mod test {
     use std::thread;
 
-    use crate::{store::TodoManager, Todo};
+    use crate::{
+        store::{MarkCompleteError, TodoStore},
+        Todo,
+    };
 
-    use super::SqlLiteTodoManager;
+    use super::SqlLiteTodoStore;
 
-    async fn create_in_memory_sqlite_todo_manager() -> SqlLiteTodoManager {
-        let mut todo_manager = SqlLiteTodoManager::new(":memory:")
+    async fn create_in_memory_sqlite_todo_manager() -> SqlLiteTodoStore {
+        let todo_manager = SqlLiteTodoStore::new(":memory:")
             .await
             .expect("Failed to create todo manager");
 
@@ -132,7 +138,7 @@ mod test {
     }
 
     async fn create_todo(
-        todo_manager: &mut SqlLiteTodoManager,
+        todo_manager: &mut SqlLiteTodoStore,
         todo_content: &str,
     ) -> (Todo, Result<(), sqlx::Error>) {
         let todo = Todo::new(String::from(todo_content));
@@ -172,7 +178,7 @@ mod test {
         assert!(todo_create_result.is_ok());
 
         todo_manager
-            .mark_complete(&todo.id)
+            .mark_complete(todo.id)
             .await
             .expect("Failed to mark todo as complete");
 
@@ -188,14 +194,16 @@ mod test {
 
     #[tokio::test]
     async fn mark_nonexistent_todo_complete() {
-        let mut todo_manager = create_in_memory_sqlite_todo_manager().await;
+        let todo_manager = create_in_memory_sqlite_todo_manager().await;
 
-        let mark_complete_result = todo_manager.mark_complete("nonexistent").await;
+        let mark_complete_result = todo_manager
+            .mark_complete(String::from("nonexistent"))
+            .await;
 
         assert!(mark_complete_result.is_err());
         assert_eq!(
             mark_complete_result.unwrap_err(),
-            crate::MarkCompleteError::TodoNotFound
+            MarkCompleteError::TodoNotFound
         );
     }
 
@@ -223,13 +231,13 @@ mod test {
             create_todo(&mut todo_manager, &last_completed_todo_content).await;
 
         todo_manager
-            .mark_complete(&first_complete_todo.id)
+            .mark_complete(first_complete_todo.id.clone())
             .await
             .expect("Failed to mark todo as complete");
         // Sleep to ensure that the completed_at timestamps are different
         thread::sleep(std::time::Duration::from_secs(1));
         todo_manager
-            .mark_complete(&last_complete_todo.id)
+            .mark_complete(last_complete_todo.id.clone())
             .await
             .expect("Failed to mark todo as complete");
 

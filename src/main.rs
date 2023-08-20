@@ -1,5 +1,5 @@
 use todo_lib::{
-    store::{sqlite::SqlLiteTodoManager, TodoManager},
+    store::{sqlite::SqlLiteTodoStore, TodoStore},
     Todo,
 };
 
@@ -9,7 +9,7 @@ const SQLLITE_DB: &'static str = "db.sqlite?mode=rwc";
 async fn main() {
     println!("Hello, world!");
 
-    let mut todo_manager = SqlLiteTodoManager::new(SQLLITE_DB)
+    let todo_manager = SqlLiteTodoStore::new(SQLLITE_DB)
         .await
         .expect("Failed to create todo manager");
 
