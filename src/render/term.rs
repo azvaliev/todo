@@ -1,7 +1,7 @@
 use crossterm::{
-    cursor,
+    cursor, queue,
     style::{self, Print, PrintStyledContent, Stylize},
-    terminal, QueueableCommand,
+    terminal,
 };
 use std::{
     cmp::min,
@@ -66,49 +66,50 @@ impl TodoRenderer for TerminalTodoRenderer {
         let empty_body_size = body_size - non_empty_body_size;
 
         // Clear screen
-        self.stdout
-            .queue(terminal::Clear(terminal::ClearType::All))
-            .expect("Can print to stdout");
-        self.stdout
-            .queue(cursor::MoveTo(0, 0))
-            .expect("Can move cursor");
+        queue!(
+            self.stdout,
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(0, 0)
+        )
+        .expect("Can print to stdout and move cursor");
 
         // Enable raw mode since we are manually queueing and flushing
         terminal::enable_raw_mode().expect("Can enable raw mode");
 
         // App header
-        self.stdout
-            .queue(style::PrintStyledContent("Todos\n\n".bold()))
+        queue!(self.stdout, style::PrintStyledContent("Todos\n\n".bold()))
             .expect("Can print to stdout");
 
         // App body
         for todo in todos[0..non_empty_body_size].iter() {
             let formatted_todo = TerminalTodoRenderer::format_todo_line(todo);
-            self.stdout
-                .queue(formatted_todo)
+            queue!(self.stdout, cursor::MoveToColumn(0), formatted_todo,)
                 .expect("Can print to stdout");
         }
         for _ in 0..empty_body_size {
-            self.stdout.queue(Print("\n")).expect("Can print to stdout");
+            queue!(self.stdout, Print("\n")).expect("Can print to stdout");
         }
 
         // App footer
-        self.stdout.queue(Print("\n")).expect("Can print to stdout");
+        queue!(self.stdout, Print("\n"),).expect("Can print to stdout");
         if let Some(error) = options.error {
-            self.stdout
-                .queue(style::PrintStyledContent(
-                    format!("{}\n", error).white().on_red(),
-                ))
-                .expect("Can print to stdout");
+            queue!(
+                self.stdout,
+                cursor::MoveToColumn(0),
+                style::PrintStyledContent(format!("{}\n", error).white().on_red(),)
+            )
+            .expect("Can print to stdout and move cursor");
+        } else {
+            queue!(self.stdout, Print("\n")).expect("Can print to stdout and move cursor");
         }
 
-        self.stdout
-            .queue(style::PrintStyledContent(INSTRUCTIONS.cyan()))
-            .expect("Can print to stdout");
-
-        self.stdout
-            .queue(cursor::MoveTo(0, HEADER_LINES - 1))
-            .expect("Can move cursor");
+        queue!(
+            self.stdout,
+            cursor::MoveToColumn(0),
+            style::PrintStyledContent(INSTRUCTIONS.cyan()),
+            cursor::MoveTo(0, HEADER_LINES - 1)
+        )
+        .expect("Can print to stdout and move cursor");
 
         self.stdout.flush().expect("Can flush stdout");
     }
