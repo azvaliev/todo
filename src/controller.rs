@@ -12,7 +12,7 @@ pub struct TodoController<T: TodoRenderer, U: TodoStore> {
     /// Current todos state
     todos: Arc<Mutex<Vec<Todo>>>,
     /// Rendering implementation
-    renderer: Arc<T>,
+    renderer: Arc<Mutex<T>>,
     /// The data store
     store: Arc<U>,
     /// Receiver for events from the UI
@@ -27,7 +27,7 @@ impl<T: TodoRenderer, U: TodoStore> TodoController<T, U> {
 
         Self {
             todos: Arc::new(Mutex::new(Vec::new())),
-            renderer: Arc::new(renderer),
+            renderer: Arc::new(Mutex::new(renderer)),
             store: Arc::new(store),
             rx_render_event: Arc::new(Mutex::new(rx_render_event)),
         }
@@ -44,8 +44,11 @@ impl<T: TodoRenderer, U: TodoStore> TodoController<T, U> {
                 .map_err(|e| format!("Failed to get todos: {}", e))?;
         }
 
-        self.renderer
-            .render(&*self.todos.lock().await, Default::default());
+        // Render todos
+        {
+            let mut renderer = self.renderer.lock().await;
+            renderer.render(&*self.todos.lock().await, Default::default());
+        }
 
         let event_todos = self.todos.clone();
         let event_store = self.store.clone();
@@ -73,6 +76,7 @@ impl<T: TodoRenderer, U: TodoStore> TodoController<T, U> {
                             Err(e) => Some(format!("Failed to create todo: {}", e)),
                         };
 
+                        let mut event_renderer = event_renderer.lock().await;
                         event_renderer.render(&*todos, TodoRenderOptions { error });
                     }
                     TodoRendererEvent::MarkComplete(todo_id) => {
@@ -95,6 +99,7 @@ impl<T: TodoRenderer, U: TodoStore> TodoController<T, U> {
                             Err(e) => Some(format!("Failed to mark todo as complete: {}", e)),
                         };
 
+                        let mut event_renderer = event_renderer.lock().await;
                         event_renderer.render(&*todos, TodoRenderOptions { error });
                     }
                     _ => {

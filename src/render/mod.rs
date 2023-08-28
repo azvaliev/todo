@@ -22,6 +22,6 @@ impl Default for TodoRenderOptions {
 
 pub trait TodoRenderer: Send + Sync + 'static {
     fn new() -> Self;
-    fn render(&self, todos: &Vec<Todo>, options: TodoRenderOptions);
+    fn render(&mut self, todos: &Vec<Todo>, options: TodoRenderOptions);
     fn set_event_sender(&mut self, event_sender: mpsc::Sender<TodoRendererEvent>);
 }

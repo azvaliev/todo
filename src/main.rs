@@ -1,24 +1,22 @@
 use todo_lib::{
-    store::{sqlite::SqlLiteTodoStore, TodoStore},
-    Todo,
+    controller::TodoController,
+    render::{term::TerminalTodoRenderer, TodoRenderer},
+    store::sqlite::SqlLiteTodoStore,
 };
 
 const SQLLITE_DB: &'static str = "db.sqlite?mode=rwc";
 
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
-
-    let todo_manager = SqlLiteTodoStore::new(SQLLITE_DB)
+    let todo_store = SqlLiteTodoStore::new(SQLLITE_DB)
         .await
         .expect("Failed to create todo manager");
 
-    todo_manager
-        .migrate()
-        .await
-        .expect("Failed to migrate database");
+    let todo_renderer = TerminalTodoRenderer::new();
 
-    let _ = todo_manager.create(&Todo::new(String::from("Test"))).await;
-    let todos = todo_manager.compile_relevant_list().await;
-    let _ = dbg!(todos);
+    let mut todo_controller = TodoController::new(todo_renderer, todo_store);
+    todo_controller
+        .run()
+        .await
+        .expect("Can run todo controller");
 }
